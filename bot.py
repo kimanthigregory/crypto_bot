@@ -84,7 +84,8 @@ async def run_bot():
     bot_task = asyncio.create_task(bot_app.run_polling())
 
     # Start the Quart app in the same event loop
-    await app.run_task()
+    port = int(os.environ.get("PORT", 5000))  # Get the port from the environment variable
+    await app.run_task(host="0.0.0.0", port=port)
 
     # Wait for both tasks to finish
     await bot_task
