@@ -74,7 +74,8 @@ async def process_telegram_update(update_data):
     """Process incoming Telegram update."""
     try:
         update = Update.de_json(update_data, bot=bot_app.bot)  # Use bot_app.bot
-        await bot_app.process_update(update)  # Use bot_app.process_update
+        logging.info(f"Received update: {update}")  # Log the update
+        await bot_app.process_update(update)  # Process the update
         return jsonify({"status": "ok"})
     except Exception as e:
         logging.error(f"Error processing update: {e}")
