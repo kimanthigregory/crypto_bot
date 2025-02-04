@@ -1,8 +1,6 @@
 import logging
 import os
 import aiohttp
-import asyncio
-from quart import Quart
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
 
@@ -21,11 +19,6 @@ CRYPTO_NEWS_URL = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTO_NEW
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# Create a Quart app
-app = Quart(__name__)
-
-# Create a Telegram bot application
-bot_app = Application.builder().token(TOKEN).build()
 
 async def fetch_crypto_news():
     """Fetch cryptocurrency news from CryptoPanic API."""
@@ -47,15 +40,18 @@ async def fetch_crypto_news():
         logging.error(f"Error fetching news: {e}")
         return ["Error fetching news. Try again later."]
 
+
 async def crypto_news(update: Update, context: CallbackContext) -> None:
     """Send the latest cryptocurrency news to Telegram."""
     news = await fetch_crypto_news()  # Ensure it is called as an awaitable coroutine
     news_message = "\n\n".join(news)
     await update.message.reply_text(f"Latest Crypto News:\n\n{news_message}")
 
+
 async def start(update: Update, context: CallbackContext) -> None:
     """Send a welcome message."""
     await update.message.reply_text("Hello! I can provide real-time crypto updates. Use /price <coin> to check prices, or /crypto_news to get the latest crypto news.")
+
 
 async def get_price(update: Update, context: CallbackContext) -> None:
     """Fetch and return the price of a cryptocurrency."""
@@ -76,30 +72,18 @@ async def get_price(update: Update, context: CallbackContext) -> None:
             else:
                 await update.message.reply_text("Error fetching data. Try again later.")
 
-# Set up a function to run the bot and Quart app together
-async def run_bot():
-    """Run the bot and the Quart web server."""
-    # Start the bot polling in the background
-    await bot_app.initialize()
-    bot_task = asyncio.create_task(bot_app.run_polling())
 
-    # Start the Quart app in the same event loop
-    port = int(os.environ.get("PORT", 5000))  # Get the port from the environment variable
-    await app.run_task(host="0.0.0.0", port=port)
+def main():
+    """Set up the bot application."""
+    app = Application.builder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("price", get_price))
+    app.add_handler(CommandHandler("crypto_news", crypto_news))
+    
+    # Run the polling method
+    app.run_polling()
 
-    # Wait for both tasks to finish
-    await bot_task
-
-@app.before_serving
-async def startup():
-    """Start both the bot and the web server."""
-    # Use asyncio.create_task to start the bot in the background
-    asyncio.create_task(run_bot())
-
-@app.route("/")
-async def home():
-    return "Bot is running!"
 
 if __name__ == "__main__":
-    # Run Quart app and bot in the same event loop
-    asyncio.run(run_bot())
+    main()
