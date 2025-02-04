@@ -24,6 +24,9 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # Initialize Quart app
 app = Quart(__name__)
 
+# Initialize the Telegram bot
+bot_app = Application.builder().token(TOKEN).build()
+
 # Command handler functions
 
 async def start(update: Update, context: CallbackContext):
@@ -70,8 +73,8 @@ async def crypto_news(update: Update, context: CallbackContext):
 async def process_telegram_update(update_data):
     """Process incoming Telegram update."""
     try:
-        update = Update.de_json(update_data, bot=app.bot)  # Use app.bot
-        await app.process_update(update)  # Use app.process_update
+        update = Update.de_json(update_data, bot=bot_app.bot)  # Use bot_app.bot
+        await bot_app.process_update(update)  # Use bot_app.process_update
         return jsonify({"status": "ok"})
     except Exception as e:
         logging.error(f"Error processing update: {e}")
@@ -90,7 +93,7 @@ async def set_webhook():
     """Set the webhook URL for the Telegram bot."""
     webhook_url = f"https://{request.host}/"  # Construct webhook URL dynamically using request.host
     try:
-        await app.bot.set_webhook(webhook_url)  # Use app.bot and await
+        await bot_app.bot.set_webhook(webhook_url)  # Use bot_app.bot and await
         return jsonify({"status": "webhook set"})
     except Exception as e:
         logging.error(f"Error setting webhook: {e}")
@@ -99,10 +102,10 @@ async def set_webhook():
 
 def main():
     """Set up the bot and Flask app."""
-    app.bot = Application.builder().token(TOKEN).build().bot  # Store the bot instance in the Quart app
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("price", get_price))
-    app.add_handler(CommandHandler("crypto_news", crypto_news))
+    # Add command handlers to the Telegram bot
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("price", get_price))
+    bot_app.add_handler(CommandHandler("crypto_news", crypto_news))
 
     # Run the Quart app (async support)
     app.run(host="0.0.0.0", port=PORT)  # Use host 0.0.0.0 for Render
