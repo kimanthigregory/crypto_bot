@@ -1,11 +1,10 @@
-import asyncio
 import logging
 import os
 import aiohttp
-import threading
-from flask import Flask
+from quart import Quart
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
+import asyncio
 
 # Load environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -78,33 +77,34 @@ async def get_price(update: Update, context: CallbackContext) -> None:
                 await update.message.reply_text("Error fetching data. Try again later.")
 
 
-def run_bot():
-    """Set up and run the bot in a separate thread with an explicit event loop."""
-    asyncio.set_event_loop(asyncio.new_event_loop())  # Create and set a new event loop
-    loop = asyncio.get_event_loop()
-
+async def run_bot():
+    """Set up and run the bot."""
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("price", get_price))
     app.add_handler(CommandHandler("crypto_news", crypto_news))
 
-    loop.run_until_complete(app.run_polling())
+    await app.run_polling()
 
 
-# Flask App
-app = Flask(__name__)
+# Initialize Quart app
+quart_app = Quart(__name__)
 
-@app.route("/")
-def home():
+@quart_app.route("/")
+async def home():
     return "Bot is running!"
 
 
-if __name__ == "__main__":
-    # Run the bot in a separate thread
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
+# Start the bot and Quart app in the same event loop
+async def start_app():
+    # Run the Telegram bot in the background
+    asyncio.create_task(run_bot())
+    
+    # Run Quart app
+    await quart_app.run_task(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
-    # Start Flask
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    # Create the event loop and run the app
+    asyncio.run(start_app())
