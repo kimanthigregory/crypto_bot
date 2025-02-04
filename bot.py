@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import os
 import aiohttp
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
-from flask import Flask
-import threading
 
 # Load environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -78,14 +79,17 @@ async def get_price(update: Update, context: CallbackContext) -> None:
 
 
 def run_bot():
-    """Set up and run the bot in a separate thread."""
+    """Set up and run the bot in a separate thread with an explicit event loop."""
+    asyncio.set_event_loop(asyncio.new_event_loop())  # Create and set a new event loop
+    loop = asyncio.get_event_loop()
+
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("price", get_price))
     app.add_handler(CommandHandler("crypto_news", crypto_news))
 
-    app.run_polling()
+    loop.run_until_complete(app.run_polling())
 
 
 # Flask App
