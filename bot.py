@@ -3,6 +3,8 @@ import os
 import aiohttp
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
+from flask import Flask
+import threading
 
 # Load environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -28,10 +30,10 @@ async def fetch_crypto_news():
                 if response.status == 200:
                     data = await response.json()
                     articles = data.get("results", [])
-                    
+
                     if not articles:
                         return ["No recent news found."]
-                    
+
                     news_list = [f"{article['title']} - {article['url']}" for article in articles[:5]]
                     return news_list
                 else:
@@ -50,7 +52,9 @@ async def crypto_news(update: Update, context: CallbackContext) -> None:
 
 async def start(update: Update, context: CallbackContext) -> None:
     """Send a welcome message."""
-    await update.message.reply_text("Hello! I can provide real-time crypto updates. Use /price <coin> to check prices, or /crypto_news to get the latest crypto news.")
+    await update.message.reply_text(
+        "Hello! I can provide real-time crypto updates. Use /price <coin> to check prices, or /crypto_news to get the latest crypto news."
+    )
 
 
 async def get_price(update: Update, context: CallbackContext) -> None:
@@ -58,7 +62,7 @@ async def get_price(update: Update, context: CallbackContext) -> None:
     if not context.args:
         await update.message.reply_text("Please provide a cryptocurrency symbol. Example: /price bitcoin")
         return
-    
+
     coin = context.args[0].lower()
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{API_URL}/simple/price?ids={coin}&vs_currencies=usd") as response:
@@ -73,17 +77,30 @@ async def get_price(update: Update, context: CallbackContext) -> None:
                 await update.message.reply_text("Error fetching data. Try again later.")
 
 
-def main():
-    """Set up the bot application."""
+def run_bot():
+    """Set up and run the bot in a separate thread."""
     app = Application.builder().token(TOKEN).build()
-    
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("price", get_price))
     app.add_handler(CommandHandler("crypto_news", crypto_news))
-    
-    # Run the polling method
+
     app.run_polling()
 
 
+# Flask App
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+
 if __name__ == "__main__":
-    main()
+    # Run the bot in a separate thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+
+    # Start Flask
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
